@@ -233,7 +233,7 @@ void loop(){
   
   buttonFuncs();
   //state_machine();
-  // if buttons trigger a menu, override the normal time display with dispUpdate()
+  // if buttons trigger a menu, override the normal time display with setDisplay()
   
   disp_main();
   frameFlag = true;
@@ -294,17 +294,17 @@ void animate_startup(){
   if(frameCount >= 200){
     frameCount = 0;
     switch (dispDigs[0]){
-      case 0: dispUpdate(111111,0); break;
-      case 1: dispUpdate(222222,0); break;
-      case 2: dispUpdate(333333,0); break;
-      case 3: dispUpdate(444444,0); break;
-      case 4: dispUpdate(555555,0); break;
-      case 5: dispUpdate(666666,0); break;
-      case 6: dispUpdate(777777,0); break;
-      case 7: dispUpdate(888888,0); break;
-      case 8: dispUpdate(999999,0); break;
-      case 9: dispUpdate(000000,63); startup = false; break;
-      default: dispUpdate(111111,12); break;
+      case 0: setDisplay(111111,0); break;
+      case 1: setDisplay(222222,0); break;
+      case 2: setDisplay(333333,0); break;
+      case 3: setDisplay(444444,0); break;
+      case 4: setDisplay(555555,0); break;
+      case 5: setDisplay(666666,0); break;
+      case 6: setDisplay(777777,0); break;
+      case 7: setDisplay(888888,0); break;
+      case 8: setDisplay(999999,0); break;
+      case 9: setDisplay(000000,63); startup = false; break;
+      default: setDisplay(111111,12); break;
     }
   }
 }
@@ -390,7 +390,7 @@ void checkrtc(){  // ISR to get new RTC info, and update the display as needed
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// dispUpdate
+// setDisplay
 //
 // This function updates all digits of the display using the least significant
 // base 10 digits of inputValue, and turns the digits on or off using blankMask
@@ -413,7 +413,7 @@ void checkrtc(){  // ISR to get new RTC info, and update the display as needed
 //             | b00111111 | 0x3F |  63 | Don't Display anything            |
 //             +-----------+------+-----+-----------------------------------+
 ////////////////////////////////////////////////////////////////////////////////
-void dispUpdate(unsigned long inputValue, byte blankMask){
+void setDisplay(unsigned long inputValue, byte blankMask){
   for (int i=0; i<6; i++){
     // If the bit of the blankMask for this digit it 1 then turn this digit off
     if ((blankMask & (0x01<<i)) > 0){
@@ -428,9 +428,21 @@ void dispUpdate(unsigned long inputValue, byte blankMask){
   }
 }
 
-void dispUpdate(byte inputDigs[6]){
+
+////////////////////////////////////////////////////////////////////////////////
+// setDisplay
+//
+// A low level interface for setting the digits on the display.
+// Digits should be passed in the order they are displayed in, [1,2,3,4,5,6]
+// will display 123456 on the display
+//
+// inputDigits - an array of bytes representing the digits. Any value 10 or
+//               above will cause the digit to be off instead of displaying
+//               a number
+////////////////////////////////////////////////////////////////////////////////
+void setDisplay(byte inputDigits[6]){
   for (int i=0; i<6; i++){
-    dispDigs[i] = (inputDigs[i]);
+    dispDigs[i] = (inputDigits[i]);
   }
 }
 
@@ -556,7 +568,7 @@ void serialMenu(){
     else dispBlank = 0; // all digits active if no mask provided
       Serial.print(F("setting display value to: "));
       Serial.println(dispVal);
-      dispUpdate(dispVal, dispBlank);
+      setDisplay(dispVal, dispBlank);
   }
   else if (tempstring == "set_debug"){
     Serial.println(F("setting debug output"));
