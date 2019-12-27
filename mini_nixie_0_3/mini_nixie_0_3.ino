@@ -389,10 +389,41 @@ void checkrtc(){  // ISR to get new RTC info, and update the display as needed
   checkFlag = false;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// dispUpdate
+//
+// This function updates all digits of the display using the least significant
+// base 10 digits of inputValue, and turns the digits on or off using blankMask
+//
+// Arguments
+// inputValue - an integer with at most 6 base 10 digits [between 0 and 999999]
+//              if a larger number is presented the most significant digits will
+//              be ignored.
+// blankMask - a byte mask for which digits should be on and displaying a number
+//             or should be off and not displaying any number
+//             eg:
+//             +-binary----+-hex--+-dec-+-Result----------------------------+
+//             | b00000000 | 0x00 |   0 | Display all digits                |
+//             | b00000011 | 0x03 |   3 | Display everything but seconds    |
+//             | b00001100 | 0x0C |  12 | Display everything except minutes |
+//             | b00110000 | 0x30 |  48 | Display everything except hours   |
+//             | b00001111 | 0x0F |  15 | Only Display hours                |
+//             | b00110011 | 0x33 |  51 | Only Display minutes              |
+//             | b00111100 | 0x3C |  60 | Only Display Seconds              |
+//             | b00111111 | 0x3F |  63 | Don't Display anything            |
+//             +-----------+------+-----+-----------------------------------+
+////////////////////////////////////////////////////////////////////////////////
 void dispUpdate(unsigned long inputValue, byte blankMask){
   for (int i=0; i<6; i++){
-    if ((blankMask & (0x01<<i)) > 0) dispDigs[5-i] = 10;
-    else dispDigs[5-i] = (inputValue%10);
+    // If the bit of the blankMask for this digit it 1 then turn this digit off
+    if ((blankMask & (0x01<<i)) > 0){
+      dispDigs[5-i] = 10;
+    }
+    // Otherwise set this digit to the value from the input
+    else {
+      dispDigs[5-i] = (inputValue%10);
+    }
+    // Chop off the digit that was just added for the next cycle
     inputValue /= 10;
   }
 }
