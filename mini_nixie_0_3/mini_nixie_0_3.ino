@@ -90,9 +90,9 @@
 #define TXLED 30  // is this necessary? or already defined somewhere?
 
 //buttons on digital pins
-#define BTN1 7
-#define BTN2 15
-#define BTN3 9
+#define BUTTON_1_PIN 7
+#define BUTTON_2_PIN 15
+#define BUTTON_3_PIN 9
 
 //tube anode control on digital pins
 #define AnoA A4
@@ -125,7 +125,7 @@ const byte cbits[] = {cbit0,cbit1,cbit2,cbit3};
 const byte AnoPins[] = {AnoA,AnoB,AnoC,AnoD,AnoE,AnoF};
 const byte cathodeConvert[] = {6, 8, 5, 9, 4, 3, 7, 1, 2, 0, 15};
 const byte dowKey[] = {1, 4, 4, 0, 2, 5, 0, 3, 6, 1, 4, 6};   // day of week key
-const byte BTN[] = {BTN1, BTN2, BTN3};
+const byte BTN[] = {BUTTON_1_PIN, BUTTON_2_PIN, BUTTON_3_PIN};
 
 // globals
 bool divchar = false; // used in serial parse function, flag for divider character
@@ -181,12 +181,12 @@ void setup() {
   pinMode(17, OUTPUT);
   pinMode(30, OUTPUT);
   
-  pinMode(BTN1, INPUT);
-  pinMode(BTN2, INPUT);
-  pinMode(BTN3, INPUT);
+  pinMode(BUTTON_1_PIN, INPUT);
+  pinMode(BUTTON_2_PIN, INPUT);
+  pinMode(BUTTON_3_PIN, INPUT);
   
-  digitalWrite(AnoA, LOW);  
-  digitalWrite(AnoB, LOW);  
+  digitalWrite(AnoA, LOW);
+  digitalWrite(AnoB, LOW);
   digitalWrite(AnoC, LOW);
   digitalWrite(AnoD, LOW);
   digitalWrite(AnoE, LOW);
