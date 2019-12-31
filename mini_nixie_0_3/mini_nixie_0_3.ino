@@ -82,17 +82,21 @@
  *  Maybe only kick-start the oscillator if the OF flag is set, but otherwise not.  
  */
 
+// Uncomment this define to enable debug printing
+// #define __DEBUG__
+
 //LEDs on digital pins
 #define PWM_GRN 11
 #define PWM_RED 6
 #define PWM_BLU 5
-#define RXLED 17  // is this necessary? or already defined somewhere?
-#define TXLED 30  // is this necessary? or already defined somewhere?
+#define RX_LED 17
+#define TX_LED 30
+#define USER_LED 13
 
 //buttons on digital pins
-#define BTN1 7
-#define BTN2 15
-#define BTN3 9
+#define BUTTON_1_PIN 7
+#define BUTTON_2_PIN 15
+#define BUTTON_3_PIN 9
 
 //tube anode control on digital pins
 #define AnoA A4
@@ -115,7 +119,7 @@
 //high voltage feedback on analog pin
 #define FB 6
 
-#define RTC_ADDR 0xD0
+const uint8_t RTC_ADDR = 0xD0>>1;
 
 #include <Wire.h>
 #include <EEPROM.h>
@@ -125,7 +129,7 @@ const byte cbits[] = {cbit0,cbit1,cbit2,cbit3};
 const byte AnoPins[] = {AnoA,AnoB,AnoC,AnoD,AnoE,AnoF};
 const byte cathodeConvert[] = {6, 8, 5, 9, 4, 3, 7, 1, 2, 0, 15};
 const byte dowKey[] = {1, 4, 4, 0, 2, 5, 0, 3, 6, 1, 4, 6};   // day of week key
-const byte BTN[] = {BTN1, BTN2, BTN3};
+const byte BTN[] = {BUTTON_1_PIN, BUTTON_2_PIN, BUTTON_3_PIN};
 
 // globals
 bool divchar = false; // used in serial parse function, flag for divider character
@@ -144,13 +148,12 @@ unsigned int long_count = 1000; // milliseconds for long press detection
 
 // non-volatile variables
 // use EEPROM.update(address,value) to write only if the value changed, to maximize endurance
-bool debugOutput = false;
 bool leadingZeroOff = false;
 byte redVal = 0;
 byte grnVal = 0;
 byte bluVal = 0;
-unsigned char onTime = 50; // tube on time, in microseconds
-unsigned char period = 100; // maximum duration of a digit illumination, in microseconds
+uint8_t onTime = 50; // tube on time, in microseconds
+uint8_t period = 100; // maximum duration of a digit illumination, in microseconds
 unsigned int deadtime = 1; // time off between digits, in microseconds
 
 // state variables
@@ -167,31 +170,34 @@ void setup() {
   Wire.begin();
   Wire.setClock(400000); // this is fast to avoid slowing down the display when interrupted
   
-  pinMode(PWM_GRN, OUTPUT);
-  pinMode(PWM_RED, OUTPUT);
-  pinMode(PWM_BLU, OUTPUT);
+  // Enable the RGB LED
   digitalWrite(PWM_GRN, LOW);
   digitalWrite(PWM_RED, LOW);
   digitalWrite(PWM_BLU, LOW);
+  pinMode(PWM_GRN, OUTPUT);
+  pinMode(PWM_RED, OUTPUT);
+  pinMode(PWM_BLU, OUTPUT);
 
-  digitalWrite(13, LOW);  //USER LED
-  digitalWrite(17, HIGH); //RXLED
-  digitalWrite(30, HIGH); //TXLED
-  pinMode(13, OUTPUT);
-  pinMode(17, OUTPUT);
-  pinMode(30, OUTPUT);
-  
-  pinMode(BTN1, INPUT);
-  pinMode(BTN2, INPUT);
-  pinMode(BTN3, INPUT);
-  
-  digitalWrite(AnoA, LOW);  
-  digitalWrite(AnoB, LOW);  
+  // Enable the other LEDs
+  digitalWrite(USER_LED, LOW);  //USER LED
+  digitalWrite(RX_LED, HIGH); //RXLED
+  digitalWrite(TX_LED, HIGH); //TXLED
+  pinMode(USER_LED, OUTPUT);
+  pinMode(RX_LED, OUTPUT);
+  pinMode(TX_LED, OUTPUT);
+
+  // Enable the three buttons on the side as inputs
+  pinMode(BUTTON_1_PIN, INPUT);
+  pinMode(BUTTON_2_PIN, INPUT);
+  pinMode(BUTTON_3_PIN, INPUT);
+
+  // Configure all Nixie Tube Annode Pins
+  digitalWrite(AnoA, LOW);
+  digitalWrite(AnoB, LOW);
   digitalWrite(AnoC, LOW);
   digitalWrite(AnoD, LOW);
   digitalWrite(AnoE, LOW);
   digitalWrite(AnoF, LOW);
-  
   pinMode(AnoA, OUTPUT);
   pinMode(AnoB, OUTPUT);
   pinMode(AnoC, OUTPUT);
@@ -199,6 +205,7 @@ void setup() {
   pinMode(AnoE, OUTPUT);
   pinMode(AnoF, OUTPUT);
 
+  // Configure all Nixie Tube Cathode Decoder Input Pins
   digitalWrite(cbit0, LOW);
   digitalWrite(cbit1, LOW);
   digitalWrite(cbit2, LOW);
@@ -212,8 +219,8 @@ void setup() {
   //setTime(13,25,36);
   //setDate(9,12,19);
 
-  pinMode(IRQ, INPUT);
   digitalWrite(IRQ, HIGH);  // open drain pin missing its pullup resistor...
+  pinMode(IRQ, INPUT);
   // check that the RTC is in a good state before attaching the interrupt.  
   attachInterrupt(digitalPinToInterrupt(SQW), toggle1, RISING);
 }
@@ -233,7 +240,7 @@ void loop(){
   
   buttonFuncs();
   //state_machine();
-  // if buttons trigger a menu, override the normal time display with dispUpdate()
+  // if buttons trigger a menu, override the normal time display with setDisplay()
   
   disp_main();
   frameFlag = true;
@@ -294,17 +301,17 @@ void animate_startup(){
   if(frameCount >= 200){
     frameCount = 0;
     switch (dispDigs[0]){
-      case 0: dispUpdate(111111,0); break;
-      case 1: dispUpdate(222222,0); break;
-      case 2: dispUpdate(333333,0); break;
-      case 3: dispUpdate(444444,0); break;
-      case 4: dispUpdate(555555,0); break;
-      case 5: dispUpdate(666666,0); break;
-      case 6: dispUpdate(777777,0); break;
-      case 7: dispUpdate(888888,0); break;
-      case 8: dispUpdate(999999,0); break;
-      case 9: dispUpdate(000000,63); startup = false; break;
-      default: dispUpdate(111111,12); break;
+      case 0: setDisplay(111111,0); break;
+      case 1: setDisplay(222222,0); break;
+      case 2: setDisplay(333333,0); break;
+      case 3: setDisplay(444444,0); break;
+      case 4: setDisplay(555555,0); break;
+      case 5: setDisplay(666666,0); break;
+      case 6: setDisplay(777777,0); break;
+      case 7: setDisplay(888888,0); break;
+      case 8: setDisplay(999999,0); break;
+      case 9: setDisplay(000000,63); startup = false; break;
+      default: setDisplay(111111,12); break;
     }
   }
 }
@@ -389,26 +396,69 @@ void checkrtc(){  // ISR to get new RTC info, and update the display as needed
   checkFlag = false;
 }
 
-void dispUpdate(unsigned long inputValue, byte blankMask){
+////////////////////////////////////////////////////////////////////////////////
+// setDisplay
+//
+// This function updates all digits of the display using the least significant
+// base 10 digits of inputValue, and turns the digits on or off using blankMask
+//
+// Arguments
+// inputValue - an integer with at most 6 base 10 digits [between 0 and 999999]
+//              if a larger number is presented the most significant digits will
+//              be ignored.
+// blankMask - a byte mask for which digits should be on and displaying a number
+//             or should be off and not displaying any number
+//             eg:
+//             +-binary----+-hex--+-dec-+-Result----------------------------+
+//             | b00000000 | 0x00 |   0 | Display all digits                |
+//             | b00000011 | 0x03 |   3 | Display everything but seconds    |
+//             | b00001100 | 0x0C |  12 | Display everything except minutes |
+//             | b00110000 | 0x30 |  48 | Display everything except hours   |
+//             | b00001111 | 0x0F |  15 | Only Display hours                |
+//             | b00110011 | 0x33 |  51 | Only Display minutes              |
+//             | b00111100 | 0x3C |  60 | Only Display Seconds              |
+//             | b00111111 | 0x3F |  63 | Don't Display anything            |
+//             +-----------+------+-----+-----------------------------------+
+////////////////////////////////////////////////////////////////////////////////
+void setDisplay(unsigned long inputValue, byte blankMask){
   for (int i=0; i<6; i++){
-    if ((blankMask & (0x01<<i)) > 0) dispDigs[5-i] = 10;
-    else dispDigs[5-i] = (inputValue%10);
+    // If the bit of the blankMask for this digit it 1 then turn this digit off
+    if ((blankMask & (0x01<<i)) > 0){
+      dispDigs[5-i] = 10;
+    }
+    // Otherwise set this digit to the value from the input
+    else {
+      dispDigs[5-i] = (inputValue%10);
+    }
+    // Chop off the digit that was just added for the next cycle
     inputValue /= 10;
   }
 }
 
-void dispUpdate(byte inputDigs[6]){
+
+////////////////////////////////////////////////////////////////////////////////
+// setDisplay
+//
+// A low level interface for setting the digits on the display.
+// Digits should be passed in the order they are displayed in, [1,2,3,4,5,6]
+// will display 123456 on the display
+//
+// inputDigits - an array of bytes representing the digits. Any value 10 or
+//               above will cause the digit to be off instead of displaying
+//               a number
+////////////////////////////////////////////////////////////////////////////////
+void setDisplay(byte inputDigits[6]){
   for (int i=0; i<6; i++){
-    dispDigs[i] = (inputDigs[i]);
+    dispDigs[i] = (inputDigits[i]);
   }
 }
 
 void serialMenu(){
   unsigned int tempint = 0;
-  unsigned char tempchar = 16;
-  unsigned char tempSec = 0;
-  unsigned char tempMin = 0;
-  unsigned char tempHr = 0;
+  uint8_t tempchar = 16;
+  uint8_t tempSec = 0;
+  uint8_t tempMin = 0;
+  uint8_t tempHr = 0;
   tempstring = serialGetWord();
   Serial.print(F("$"));
   Serial.println(tempstring);
@@ -416,7 +466,6 @@ void serialMenu(){
   if (tempstring == "help"){
     Serial.println(F("Command Options (prefix with '$'):"));
     Serial.println(F("set_led,redpwm,greenpwm,bluepwm // set the backlight led PWM values"));
-    Serial.println(F("set_debug,0or1 // enable or disable debug output prints"));
     Serial.println(F("i2c_scan // searches for I2C devices and prints their addresses and registers"));
     Serial.println(F("display,decimal_value,BCD blank mask // sets the value to display, up to 999999; mask 63 is all off"));
     Serial.println(F("read_rtc,start_register,num bytes // reads rtc registers and prints results;"));
@@ -525,20 +574,7 @@ void serialMenu(){
     else dispBlank = 0; // all digits active if no mask provided
       Serial.print(F("setting display value to: "));
       Serial.println(dispVal);
-      dispUpdate(dispVal, dispBlank);
-  }
-  else if (tempstring == "set_debug"){
-    Serial.println(F("setting debug output"));
-    switch (serialGetWord().toInt()){
-      case 0:
-        debugOutput = false;
-        break;
-      case 1:
-        debugOutput = true;
-        break;
-      default:
-        break;
-    }
+      setDisplay(dispVal, dispBlank);
   }
   else if (tempstring == "override"){
     switch (serialGetWord().toInt()){
@@ -559,7 +595,7 @@ void serialMenu(){
   }
 }
 
-void setLed(unsigned char setred, unsigned char setgrn, unsigned char setblu){  // sets the static rear illumination LED PWM values to a new value
+void setLed(uint8_t setred, uint8_t setgrn, uint8_t setblu){  // sets the static rear illumination LED PWM values to a new value
   redVal = setred;
   grnVal = setgrn;
   bluVal = setblu;
@@ -615,7 +651,7 @@ void i2cScan(){   // scan all possible i2c address for devices, and report any a
       if((address<<1)<16) Serial.print(F("0"));
       Serial.println(address<<1, HEX);
       Serial.print(F("Reg\tvalue\n"));
-      Wire.requestFrom(address,255);
+      Wire.requestFrom(address, 255u);
       for (i=0; i<Wire.available(); i++){
         byte temp = Wire.read();
         Serial.print(i);
@@ -639,54 +675,56 @@ void i2cScan(){   // scan all possible i2c address for devices, and report any a
 }
 
 void RTCinit(){   // initializes the RTC; run at startup
-  unsigned char temp;
+  uint8_t temp;
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x04);     // select the dow register
   Wire.endTransmission();
-  Wire.requestFrom(RTC_ADDR>>1, 1);
+  Wire.requestFrom(RTC_ADDR, 1u);
   temp = Wire.read();   // get the sqw register values, so we don't overwrite other settings
   temp |= 0xF0;         // set to 1Hz output 1111xxxx
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x04);     // select the sqw register
   Wire.write(temp);     // send the new value
   Wire.endTransmission();
 
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x0f);     // select the flags register
   Wire.endTransmission();
-  Wire.requestFrom(RTC_ADDR>>1, 1);
+  Wire.requestFrom(RTC_ADDR, 1u);
   temp = Wire.read();
   Wire.endTransmission();
   if ((temp & 0x04)>0){ // check if the oscillator has faulted, aka lost time
-    if (debugOutput && Serial) {
-      Serial.println(F("Oscillator fault detected; please set the time"));
-    }
+    #ifdef __DEBUG__
+      if (Serial) {
+        Serial.println(F("Oscillator fault detected; please set the time"));
+      }
+    #endif
     OF = true;
   }
 
   if (OF){            // kickstart the oscillator if it stopped
-    Wire.beginTransmission(RTC_ADDR>>1);
+    Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x01);     // select the seconds register
     Wire.endTransmission();
-    Wire.requestFrom(RTC_ADDR>>1,1);
+    Wire.requestFrom(RTC_ADDR, 1u);
     temp = Wire.read();
     temp |= 0x80;
     Wire.endTransmission();
-    Wire.beginTransmission(RTC_ADDR>>1);
+    Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x01);     // select the seconds register
     Wire.write(temp);     // send the new value
     Wire.endTransmission();
 
-    Wire.beginTransmission(RTC_ADDR>>1);
+    Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x01);     // select the seconds register
     Wire.endTransmission();
-    Wire.requestFrom(RTC_ADDR>>1,1);
+    Wire.requestFrom(RTC_ADDR, 1u);
     temp = Wire.read();
     temp &= !0x80;
     Wire.endTransmission();
-    Wire.beginTransmission(RTC_ADDR>>1);
+    Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x01);     // select the seconds register
     Wire.write(temp);     // send the new value
     Wire.endTransmission();
@@ -697,7 +735,7 @@ void readRTC(){   // reads the RTC registers starting from the beginning
   readRTC(0x00,16);
 }
 
-byte readRTC(byte reg, unsigned char count){
+byte readRTC(byte reg, uint8_t count){
   // reads the RTC registers starting from the specified register
   String suffix[] = { F("\thundredths\n"),F("\tseconds\n"),F("\tminutes\n"),F("\thours\n"),F("\tdow\n"),
                       F("\tdate\n"),F("\tmonth\n"),F("\tyear\n"),F("\tcal\n"),F("\twatchdog\n"),
@@ -706,69 +744,85 @@ byte readRTC(byte reg, unsigned char count){
   String output;
   output = "Reg\tvalue\n";
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(reg); //set the register at which to start reading
   Wire.endTransmission();
-  Wire.requestFrom(RTC_ADDR>>1, count); //get all register values
-  for (unsigned char i=reg; i<(reg+count); i++){
+  Wire.requestFrom(RTC_ADDR, count); //get all register values
+  for (uint8_t i=reg; i<(reg+count); i++){
     rtcRegs[i] = Wire.read();
-    if(debugOutput){
+    #ifdef __DEBUG__
       output += i;
       output += "\t0x";
       if(rtcRegs[i]<16) output += "0";
       output += String(rtcRegs[i], HEX);
       output += suffix[i];
+    #endif
+  }
+  #ifdef __DEBUG__
+    if(Serial){
+      Serial.println(output);
     }
-  }
-  if(debugOutput && Serial){
-    Serial.println(output);
-  }
+  #endif
   Wire.endTransmission();
   return rtcRegs[reg+count];
 }
 
 void writeRTC(byte address, byte data){
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(address);
   Wire.write(data);
   Wire.endTransmission();
 }
 
-void setTime(unsigned char hours,unsigned char minutes, unsigned char seconds){
+void setTime(uint8_t hours,uint8_t minutes, uint8_t seconds){
   byte tempByte = 0x00;
-  if (debugOutput && Serial){
-    Serial.println(F("byte\tdec in\tmsn\tlsn\thex out"));
-    Serial.print(F("secs \t"));
-    Serial.print(seconds);
-    Serial.print(F("\t0x"));
-  }
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.println(F("byte\tdec in\tmsn\tlsn\thex out"));
+      Serial.print(F("secs \t"));
+      Serial.print(seconds);
+      Serial.print(F("\t0x"));
+    }
+  #endif
   // convert seconds to BCD
   seconds = ((seconds/10) << 4) | (seconds%10) & 0x7f;
   // ensure 0xxx xxxx, stop bit should not be affected by this and defaults to 0
-  if (debugOutput && Serial) Serial.println(seconds, HEX);
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.println(seconds, HEX);
+    }
+  #endif
   
   // convert minutes to BCD
   tempByte = readRTC(0x02,1);  // get the current minutes register; need to know what OFIE is
   tempByte &= 0x80;       // get the OFIE bit
-  if (debugOutput && Serial){
-    Serial.print(F("mins \t"));
-    Serial.print(minutes);
-    Serial.print(F("\t0x"));
-  }
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.print(F("mins \t"));
+      Serial.print(minutes);
+      Serial.print(F("\t0x"));
+    }
+  #endif
   minutes = ((minutes/10) << 4) | (minutes%10) | tempByte;
-  if (debugOutput && Serial){
-    Serial.println(minutes, HEX);
-    Serial.print(F("hrs \t"));
-    Serial.print(hours);
-    Serial.print(F("\t0x"));
-  }
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.println(minutes, HEX);
+      Serial.print(F("hrs \t"));
+      Serial.print(hours);
+      Serial.print(F("\t0x"));
+    }
+  #endif
   // convert hours to BCD
   hours = ((hours/10) << 4) | (hours%10);
-  if (debugOutput && Serial) Serial.println(hours, HEX);
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.println(hours, HEX);
+    }
+  #endif
   
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x01);       // start at seconds; tenths and hundredths will automatically set to 0
   Wire.write(seconds);    // set the seconds and stop bit
   Wire.write(minutes);    // set the minutes and OFIE bit
@@ -776,20 +830,22 @@ void setTime(unsigned char hours,unsigned char minutes, unsigned char seconds){
   Wire.endTransmission();
 }
 
-void setDate(unsigned char date, unsigned char month,unsigned char year){
+void setDate(uint8_t date, uint8_t month, uint8_t year){
   byte tempByte = 0;
   byte dow = 0;
-  if (debugOutput && Serial){
-    Serial.println(F("byte\tdec in\thex out"));
-  }
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.println(F("byte\tdec in\thex out"));
+    }
+  #endif
 
   // determine day of week
   // see http://mathforum.org/dr.math/faq/faq.calendar.html
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x04); //select the dow register
   Wire.endTransmission();
-  Wire.requestFrom(RTC_ADDR>>1, 1);
+  Wire.requestFrom(RTC_ADDR, 1u);
   tempByte = Wire.read();
   tempByte &= 0xF0;   // keep only the RS setting bits
   
@@ -797,46 +853,62 @@ void setDate(unsigned char date, unsigned char month,unsigned char year){
   dow += 6;  // needs adjustment for centuries after 2099, but not supported here
   if ((month == 1 or month == 2) and (year%4 == 0)) dow -= 1;
   dow = dow%7;
-  if (debugOutput && Serial) Serial.println(dow);
+  #ifdef __DEBUG__
+    if (Serial) Serial.println(dow);
+  #endif
   // 0 is saturday, 1 is sunday, 2 is monday...
   tempByte |= dow;
-  if (debugOutput && Serial){
-    Serial.print(F("dow \t"));
-    Serial.print(dow);
-    Serial.print(F("\t0x"));
-    Serial.println(tempByte, HEX);
-  }
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.print(F("dow \t"));
+      Serial.print(dow);
+      Serial.print(F("\t0x"));
+      Serial.println(tempByte, HEX);
+    }
+  #endif
   
-  if (debugOutput && Serial){
-    Serial.print(F("date \t"));
-    Serial.print(date);
-    Serial.print(F("\t0x"));
-  }
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.print(F("date \t"));
+      Serial.print(date);
+      Serial.print(F("\t0x"));
+    }
+  #endif
   // convert date to BCD
   date = ((date/10) << 4) | (date%10) & 0x3f;
   // ensure 00xx xxxx, for valid date
-  if (debugOutput && Serial) Serial.println(date, HEX);
   
+  #ifdef __DEBUG__
+    if (Serial) Serial.println(date, HEX);
+  #endif
+
   // convert month to BCD
-  if (debugOutput && Serial){
-    Serial.print(F("month \t"));
-    Serial.print(month);
-    Serial.print(F("\t0x"));
-  }
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.print(F("month \t"));
+      Serial.print(month);
+      Serial.print(F("\t0x"));
+    }
+  #endif
   month = ((month/10) << 4) | (month%10) & 0x3f;
   // room here for century bits at 0x80 and 0x40, but not supporting now: 000x xxxx
-  if (debugOutput && Serial){
-    Serial.println(month, HEX);
-    Serial.print(F("year \t"));
-    Serial.print(year);
-    Serial.print(F("\t0x"));
-  }
+  #ifdef __DEBUG__
+    if (Serial){
+      Serial.println(month, HEX);
+      Serial.print(F("year \t"));
+      Serial.print(year);
+      Serial.print(F("\t0x"));
+    }
+  #endif
   // convert year to BCD
   year = ((year/10) << 4) | (year%10);
-  if (debugOutput && Serial) Serial.println(year, HEX);
+
+  #ifdef __DEBUG__
+    if (Serial) Serial.println(year, HEX);
+  #endif
 
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x04);       // start at dow
   Wire.write(tempByte);   // set the dow
   Wire.write(date);       // set the day
