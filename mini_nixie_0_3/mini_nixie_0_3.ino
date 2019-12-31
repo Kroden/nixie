@@ -119,7 +119,7 @@
 //high voltage feedback on analog pin
 #define FB 6
 
-#define RTC_ADDR 0xD0
+const uint8_t RTC_ADDR = 0xD0>>1;
 
 #include <Wire.h>
 #include <EEPROM.h>
@@ -152,8 +152,8 @@ bool leadingZeroOff = false;
 byte redVal = 0;
 byte grnVal = 0;
 byte bluVal = 0;
-unsigned char onTime = 50; // tube on time, in microseconds
-unsigned char period = 100; // maximum duration of a digit illumination, in microseconds
+uint8_t onTime = 50; // tube on time, in microseconds
+uint8_t period = 100; // maximum duration of a digit illumination, in microseconds
 unsigned int deadtime = 1; // time off between digits, in microseconds
 
 // state variables
@@ -455,10 +455,10 @@ void setDisplay(byte inputDigits[6]){
 
 void serialMenu(){
   unsigned int tempint = 0;
-  unsigned char tempchar = 16;
-  unsigned char tempSec = 0;
-  unsigned char tempMin = 0;
-  unsigned char tempHr = 0;
+  uint8_t tempchar = 16;
+  uint8_t tempSec = 0;
+  uint8_t tempMin = 0;
+  uint8_t tempHr = 0;
   tempstring = serialGetWord();
   Serial.print(F("$"));
   Serial.println(tempstring);
@@ -595,7 +595,7 @@ void serialMenu(){
   }
 }
 
-void setLed(unsigned char setred, unsigned char setgrn, unsigned char setblu){  // sets the static rear illumination LED PWM values to a new value
+void setLed(uint8_t setred, uint8_t setgrn, uint8_t setblu){  // sets the static rear illumination LED PWM values to a new value
   redVal = setred;
   grnVal = setgrn;
   bluVal = setblu;
@@ -651,7 +651,7 @@ void i2cScan(){   // scan all possible i2c address for devices, and report any a
       if((address<<1)<16) Serial.print(F("0"));
       Serial.println(address<<1, HEX);
       Serial.print(F("Reg\tvalue\n"));
-      Wire.requestFrom(address,255);
+      Wire.requestFrom(address, 255u);
       for (i=0; i<Wire.available(); i++){
         byte temp = Wire.read();
         Serial.print(i);
@@ -675,24 +675,24 @@ void i2cScan(){   // scan all possible i2c address for devices, and report any a
 }
 
 void RTCinit(){   // initializes the RTC; run at startup
-  unsigned char temp;
+  uint8_t temp;
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x04);     // select the dow register
   Wire.endTransmission();
-  Wire.requestFrom(RTC_ADDR>>1, 1);
+  Wire.requestFrom(RTC_ADDR, 1u);
   temp = Wire.read();   // get the sqw register values, so we don't overwrite other settings
   temp |= 0xF0;         // set to 1Hz output 1111xxxx
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x04);     // select the sqw register
   Wire.write(temp);     // send the new value
   Wire.endTransmission();
 
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x0f);     // select the flags register
   Wire.endTransmission();
-  Wire.requestFrom(RTC_ADDR>>1, 1);
+  Wire.requestFrom(RTC_ADDR, 1u);
   temp = Wire.read();
   Wire.endTransmission();
   if ((temp & 0x04)>0){ // check if the oscillator has faulted, aka lost time
@@ -705,26 +705,26 @@ void RTCinit(){   // initializes the RTC; run at startup
   }
 
   if (OF){            // kickstart the oscillator if it stopped
-    Wire.beginTransmission(RTC_ADDR>>1);
+    Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x01);     // select the seconds register
     Wire.endTransmission();
-    Wire.requestFrom(RTC_ADDR>>1,1);
+    Wire.requestFrom(RTC_ADDR, 1u);
     temp = Wire.read();
     temp |= 0x80;
     Wire.endTransmission();
-    Wire.beginTransmission(RTC_ADDR>>1);
+    Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x01);     // select the seconds register
     Wire.write(temp);     // send the new value
     Wire.endTransmission();
 
-    Wire.beginTransmission(RTC_ADDR>>1);
+    Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x01);     // select the seconds register
     Wire.endTransmission();
-    Wire.requestFrom(RTC_ADDR>>1,1);
+    Wire.requestFrom(RTC_ADDR, 1u);
     temp = Wire.read();
     temp &= !0x80;
     Wire.endTransmission();
-    Wire.beginTransmission(RTC_ADDR>>1);
+    Wire.beginTransmission(RTC_ADDR);
     Wire.write(0x01);     // select the seconds register
     Wire.write(temp);     // send the new value
     Wire.endTransmission();
@@ -735,7 +735,7 @@ void readRTC(){   // reads the RTC registers starting from the beginning
   readRTC(0x00,16);
 }
 
-byte readRTC(byte reg, unsigned char count){
+byte readRTC(byte reg, uint8_t count){
   // reads the RTC registers starting from the specified register
   String suffix[] = { F("\thundredths\n"),F("\tseconds\n"),F("\tminutes\n"),F("\thours\n"),F("\tdow\n"),
                       F("\tdate\n"),F("\tmonth\n"),F("\tyear\n"),F("\tcal\n"),F("\twatchdog\n"),
@@ -744,11 +744,11 @@ byte readRTC(byte reg, unsigned char count){
   String output;
   output = "Reg\tvalue\n";
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(reg); //set the register at which to start reading
   Wire.endTransmission();
-  Wire.requestFrom(RTC_ADDR>>1, count); //get all register values
-  for (unsigned char i=reg; i<(reg+count); i++){
+  Wire.requestFrom(RTC_ADDR, count); //get all register values
+  for (uint8_t i=reg; i<(reg+count); i++){
     rtcRegs[i] = Wire.read();
     #ifdef __DEBUG__
       output += i;
@@ -769,13 +769,13 @@ byte readRTC(byte reg, unsigned char count){
 
 void writeRTC(byte address, byte data){
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(address);
   Wire.write(data);
   Wire.endTransmission();
 }
 
-void setTime(unsigned char hours,unsigned char minutes, unsigned char seconds){
+void setTime(uint8_t hours,uint8_t minutes, uint8_t seconds){
   byte tempByte = 0x00;
   #ifdef __DEBUG__
     if (Serial){
@@ -822,7 +822,7 @@ void setTime(unsigned char hours,unsigned char minutes, unsigned char seconds){
   #endif
   
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x01);       // start at seconds; tenths and hundredths will automatically set to 0
   Wire.write(seconds);    // set the seconds and stop bit
   Wire.write(minutes);    // set the minutes and OFIE bit
@@ -830,7 +830,7 @@ void setTime(unsigned char hours,unsigned char minutes, unsigned char seconds){
   Wire.endTransmission();
 }
 
-void setDate(unsigned char date, unsigned char month,unsigned char year){
+void setDate(uint8_t date, uint8_t month, uint8_t year){
   byte tempByte = 0;
   byte dow = 0;
   #ifdef __DEBUG__
@@ -842,10 +842,10 @@ void setDate(unsigned char date, unsigned char month,unsigned char year){
   // determine day of week
   // see http://mathforum.org/dr.math/faq/faq.calendar.html
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x04); //select the dow register
   Wire.endTransmission();
-  Wire.requestFrom(RTC_ADDR>>1, 1);
+  Wire.requestFrom(RTC_ADDR, 1u);
   tempByte = Wire.read();
   tempByte &= 0xF0;   // keep only the RS setting bits
   
@@ -908,7 +908,7 @@ void setDate(unsigned char date, unsigned char month,unsigned char year){
   #endif
 
   Wire.endTransmission();
-  Wire.beginTransmission(RTC_ADDR>>1);
+  Wire.beginTransmission(RTC_ADDR);
   Wire.write(0x04);       // start at dow
   Wire.write(tempByte);   // set the dow
   Wire.write(date);       // set the day
