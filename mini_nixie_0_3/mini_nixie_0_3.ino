@@ -86,8 +86,9 @@
 #define PWM_GRN 11
 #define PWM_RED 6
 #define PWM_BLU 5
-#define RXLED 17  // is this necessary? or already defined somewhere?
-#define TXLED 30  // is this necessary? or already defined somewhere?
+#define RX_LED 17
+#define TX_LED 30
+#define USER_LED 13
 
 //buttons on digital pins
 #define BUTTON_1_PIN 7
@@ -167,31 +168,34 @@ void setup() {
   Wire.begin();
   Wire.setClock(400000); // this is fast to avoid slowing down the display when interrupted
   
-  pinMode(PWM_GRN, OUTPUT);
-  pinMode(PWM_RED, OUTPUT);
-  pinMode(PWM_BLU, OUTPUT);
+  // Enable the RGB LED
   digitalWrite(PWM_GRN, LOW);
   digitalWrite(PWM_RED, LOW);
   digitalWrite(PWM_BLU, LOW);
+  pinMode(PWM_GRN, OUTPUT);
+  pinMode(PWM_RED, OUTPUT);
+  pinMode(PWM_BLU, OUTPUT);
 
-  digitalWrite(13, LOW);  //USER LED
-  digitalWrite(17, HIGH); //RXLED
-  digitalWrite(30, HIGH); //TXLED
-  pinMode(13, OUTPUT);
-  pinMode(17, OUTPUT);
-  pinMode(30, OUTPUT);
-  
+  // Enable the other LEDs
+  digitalWrite(USER_LED, LOW);  //USER LED
+  digitalWrite(RX_LED, HIGH); //RXLED
+  digitalWrite(TX_LED, HIGH); //TXLED
+  pinMode(USER_LED, OUTPUT);
+  pinMode(RX_LED, OUTPUT);
+  pinMode(TX_LED, OUTPUT);
+
+  // Enable the three buttons on the side as inputs
   pinMode(BUTTON_1_PIN, INPUT);
   pinMode(BUTTON_2_PIN, INPUT);
   pinMode(BUTTON_3_PIN, INPUT);
-  
+
+  // Configure all Nixie Tube Annode Pins
   digitalWrite(AnoA, LOW);
   digitalWrite(AnoB, LOW);
   digitalWrite(AnoC, LOW);
   digitalWrite(AnoD, LOW);
   digitalWrite(AnoE, LOW);
   digitalWrite(AnoF, LOW);
-  
   pinMode(AnoA, OUTPUT);
   pinMode(AnoB, OUTPUT);
   pinMode(AnoC, OUTPUT);
@@ -199,6 +203,7 @@ void setup() {
   pinMode(AnoE, OUTPUT);
   pinMode(AnoF, OUTPUT);
 
+  // Configure all Nixie Tube Cathode Decoder Input Pins
   digitalWrite(cbit0, LOW);
   digitalWrite(cbit1, LOW);
   digitalWrite(cbit2, LOW);
@@ -212,8 +217,8 @@ void setup() {
   //setTime(13,25,36);
   //setDate(9,12,19);
 
-  pinMode(IRQ, INPUT);
   digitalWrite(IRQ, HIGH);  // open drain pin missing its pullup resistor...
+  pinMode(IRQ, INPUT);
   // check that the RTC is in a good state before attaching the interrupt.  
   attachInterrupt(digitalPinToInterrupt(SQW), toggle1, RISING);
 }
